@@ -3,17 +3,21 @@
       <label class="small">Mode</label>
       <!-- Banana: does not support 'min','mean','max', and 'total' modes yet -->
       <!-- <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.mode" ng-options="f for f in ['count','min','mean','max','total','value']"></select> -->
-      <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.mode" ng-options="f for f in ['count','values']"></select>
+      <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.mode" ng-options="f for f in ['count','values','avg', 'min', 'max', 'sum', 'percentile', 'unique']"></select>
     </div>
     <div class="span2" ng-show="panel.mode != 'count'">
       <label class="small">Value Field</label>
         <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="panel.value_field">
     </div>
-    <div class="span2" ng-show="panel.mode != 'count'">
+    <div class="span2" ng-show="panel.mode == 'values'">
       <label class="small">Max Rows <tip>Maximum number of rows to retrieve for the result set.</tip></label>
       <input ng-change="set_refresh(true)" placeholder="100000" type="number" class="input-small" ng-model="panel.max_rows">
     </div>
-    <div class="span3" ng-show="panel.mode != 'count'">
+    <div class="span2" ng-show="panel.mode == 'percentile'">
+      <label class="small">Percentile value</label>
+      <input ng-change="set_refresh(true)" placeholder="99.5" type="number" step="0.1" class="input-small" ng-model="panel.percentile_value">
+    </div>
+    <div class="span3" ng-show="panel.mode == 'values'">
       <label class="small">Note</label><small> In <strong>{{panel.mode}}</strong> mode the configured field <strong>must</strong> be a numeric type.</small>
     </div>
   </div>

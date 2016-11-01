@@ -80,6 +80,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         custom      : ''
       },
       max_rows    : 100000,  // maximum number of rows returned from Solr (also use this for group.limit to simplify UI setting)
+      percentile_value: 50,
       value_field : null,
       group_field : null,
       sum_value   : false,
@@ -277,20 +278,38 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       var wt_json = '&wt=json';
       var rows_limit = '&rows=0'; // for histogram, we do not need the actual response doc, so set rows=0
       var facet_gap = $scope.sjs.convertFacetGap($scope.panel.interval);
-      var facet = '&facet=true' +
-                  '&facet.range=' + time_field +
-                  '&facet.range.start=' + start_time +
-                  '&facet.range.end=' + end_time +
-                  '&facet.range.gap=' + facet_gap;
+      var facet = '';
       var values_mode_query = '';
 
-      // For mode = value
-      if($scope.panel.mode === 'values') {
+      if ($scope.panel.mode !== 'count') {
         if (!$scope.panel.value_field) {
             $scope.panel.error = "In " + $scope.panel.mode + " mode a field must be specified";
             return;
         }
-
+      }
+      if ($scope.panel.mode === 'values' || $scope.panel.mode === 'count') {
+        facet = '&facet=true' +
+                  '&facet.range=' + time_field +
+                  '&facet.range.start=' + start_time +
+                  '&facet.range.end=' + end_time +
+                  '&facet.range.gap=' + facet_gap;
+      } else {
+        var other_params = '';
+        if ($scope.panel.mode === 'percentile') {
+          if (!$scope.panel.percentile_value) {
+              $scope.panel.error = "In " + $scope.panel.mode + " mode a percentile value must be specified";
+              return;
+          }
+          other_params = "," + $scope.panel.percentile_value;
+        }
+        facet = '&json.facet={stat:{type:range, field:' + time_field +
+          ', start:"' + start_time + 
+          '", end:"' + end_time +
+          '", gap:"' + facet_gap +
+          '", facet:{y:"' + $scope.panel.mode +'(' + $scope.panel.value_field + other_params + ')"}}}';
+      }
+      // For mode = value
+      if($scope.panel.mode === 'values') {
         values_mode_query = '&fl=' + time_field + ' ' + $scope.panel.value_field;
         rows_limit = '&rows=' + $scope.panel.max_rows;
         facet = '';
@@ -433,7 +452,16 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
                     hits: hits
                   };
                 }
-              }
+              } else {
+                // Entries from facet_ranges counts
+                entries = results[index].facets.stat.buckets;
+                for (var j = 0; j < entries.length; j++) {
+                  entry_time = new Date(entries[j].val).getTime(); // convert to millisec
+                  time_series.addValue(entry_time, new Number(entries[j].y).toPrecision(5));
+                  hits += entries[j].count; // The series level hits counter
+                  $scope.hits += entries[j].count; // Entire dataset level hits counter
+                }
+              } 
 
               if ($scope.panel.mode !== 'values') {
                 $scope.data[i] = {
@@ -582,7 +610,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
                 show: scope.panel['y-axis'],
                 min: null, // TODO - make this adjusted dynamicmally, and add it to configuration panel
                 max: scope.panel.percentage && scope.panel.stack ? 100 : null,
-                axisLabel: scope.panel.mode,
+                axisLabel: scope.panel.mode + (scope.panel.mode === 'percentile' ? (' ' + scope.panel.percentile_value) : ''),
               },
               xaxis: {
                 timezone: scope.panel.timezone,
